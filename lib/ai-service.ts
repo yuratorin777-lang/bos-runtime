@@ -534,7 +534,7 @@ ${modePrompts[mode]}
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
-          'HTTP-Referer': this.config.siteUrl,
+          'HTTP-Referer': this.config.siteUrl || 'http://localhost:3000',
           'X-Title': 'BOS Runtime',
           'Content-Type': 'application/json',
         },
