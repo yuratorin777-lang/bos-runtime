@@ -753,25 +753,6 @@ ${modePrompts[mode]}
     }
   }
 
-    try {
-      const response = await fetch(`${this.config.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.config.apiKey}`,
-          'HTTP-Referer': this.config.siteUrl || 'http://localhost:3001',
-          'X-Title': 'BOS Runtime',
-          'Content-Type': 'application/json',
-        } as HeadersInit,
-        body: JSON.stringify(requestBody),
-      });
-
-      return response;
-    } catch (error: any) {
-      console.error('❌ [BOS AI] Fetch error:', error.message);
-      throw error;
-    }
-  }
-
   /**
    * Получить статус сервиса
    */
