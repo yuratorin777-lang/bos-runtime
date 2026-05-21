@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         model,
         systemPrompt,
         temperature: 0.7,
-        max_tokens: maxContextTokens,
+        max_tokens: 2000,
       })
     } else {
       // Non-streaming response
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         model,
         systemPrompt,
         temperature: 0.7,
-        max_tokens: maxContextTokens,
+        max_tokens: 2000,
       })
 
       return new Response(
