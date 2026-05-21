@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOS Pitch Deck | The Operating System for Business AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            margin: 0;
+            size: landscape;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background: #0f172a;
+            color: #ffffff;
+        }
+
+        .slide {
+            min-height: 100vh;
+            padding: 80px 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            page-break-after: always;
+            position: relative;
+        }
+
+        .slide:nth-child(even) {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+
+        .slide:nth-child(odd) {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+
+        .slide-light {
+            background: #ffffff !important;
+            color: #0f172a;
+        }
+
+        .slide-light h1,
+        .slide-light h2,
+        .slide-light h3 {
+            color: #0f172a;
+        }
+
+        .slide-light p,
+        .slide-light li {
+            color: #334155;
+        }
+
+        .slide-number {
+            position: absolute;
+            top: 40px;
+            right: 100px;
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .logo {
+            font-size: 64px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #0066ff 0%, #00d4ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            letter-spacing: -2px;
+        }
+
+        h1 {
+            font-size: 72px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        h2 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            line-height: 1.2;
+        }
+
+        h3 {
+            font-size: 36px;
+            font-weight: 600;
+            margin: 40px 0 20px 0;
+            color: #0066ff;
+        }
+
+        p {
+            font-size: 24px;
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin: 15px 0;
+        }
+
+        .tagline {
+            font-size: 32px;
+            font-weight: 300;
+            color: #64748b;
+            margin-bottom: 50px;
+        }
+
+        .highlight {
+            color: #0066ff;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin: 50px 0;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 102, 255, 0.3);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            border-color: #0066ff;
+            background: rgba(0, 102, 255, 0.1);
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 72px;
+            font-weight: 700;
+            color: #0066ff;
+            margin-bottom: 15px;
+        }
+
+        .stat-label {
+            font-size: 20px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .problem-list,
+        .solution-list,
+        .bullet-list {
+            list-style: none;
+            margin: 30px 0;
+        }
+
+        .problem-list li,
+        .solution-list li,
+        .bullet-list li {
+            padding: 20px 0 20px 50px;
+            position: relative;
+            font-size: 26px;
+            line-height: 1.5;
+            color: #e2e8f0;
+        }
+
+        .problem-list li:before {
+            content: "⚠";
+            position: absolute;
+            left: 0;
+            font-size: 32px;
+            color: #ef4444;
+        }
+
+        .solution-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-size: 32px;
+            color: #10b981;
+            font-weight: 700;
+        }
+
+        .bullet-list li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            font-size: 32px;
+            color: #0066ff;
+            font-weight: 700;
+        }
+
+        .architecture-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #0066ff;
+            border-radius: 20px;
+            padding: 50px;
+            margin: 40px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            line-height: 1.8;
+            color: #00d4ff;
+        }
+
+        .cta-section {
+            background: linear-gradient(135deg, #0066ff 0%, #0052cc 100%);
+            border-radius: 20px;
+            padding: 50px;
+            margin: 50px 0;
+            text-align: center;
+        }
+
+        .cta-section h3 {
+            color: #ffffff;
+            margin-top: 0;
+        }
+
+        .cta-section p {
+            color: #e0f2fe;
+            font-size: 26px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 40px 0;
+            font-size: 20px;
+        }
+
+        thead {
+            background: #0066ff;
+        }
+
+        th {
+            padding: 25px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 22px;
+            border-bottom: 3px solid #0052cc;
+        }
+
+        td {
+            padding: 25px;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.3);
+            color: #cbd5e1;
+        }
+
+        tbody tr {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        tbody tr:hover {
+            background: rgba(0, 102, 255, 0.1);
+        }
+
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            margin: 50px 0;
+            position: relative;
+        }
+
+        .timeline:before {
+            content: "";
+            position: absolute;
+            top: 40px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0066ff 0%, #00d4ff 100%);
+        }
+
+        .timeline-item {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .timeline-dot {
+            width: 80px;
+            height: 80px;
+            background: #0066ff;
+            border: 4px solid #0f172a;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .timeline-label {
+            font-size: 22px;
+            font-weight: 600;
+            color: #0066ff;
+            margin-bottom: 10px;
+        }
+
+        .timeline-content {
+            font-size: 18px;
+            color: #94a3b8;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 40px;
+            margin: 50px 0;
+        }
+
+        .comparison-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 40px;
+            border: 2px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .comparison-card h4 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #94a3b8;
+        }
+
+        .comparison-card.winner {
+            border-color: #0066ff;
+            background: rgba(0, 102, 255, 0.1);
+        }
+
+        .comparison-card.winner h4 {
+            color: #0066ff;
+        }
+
+        .contact-footer {
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 2px solid rgba(100, 116, 139, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .contact-item {
+            font-size: 20px;
+        }
+
+        .contact-label {
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .contact-value {
+            color: #0066ff;
+            font-weight: 600;
+            font-size: 22px;
+        }
+
+        @media print {
+            .slide {
+                page-break-inside: avoid;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .slide {
+                padding: 60px 50px;
+            }
+            h1 {
+                font-size: 56px;
+            }
+            h2 {
+                font-size: 42px;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SLIDE 1: OPENING -->
+    <div class="slide">
+        <div class="slide-number">1/10</div>
+        <div class="logo">BOS</div>
+        <h1>The Operating System<br>for Business AI</h1>
+        <p class="tagline">Unifying fragmented AI infrastructure into a single cognitive platform</p>
+        <div class="stats-grid" style="margin-top: 80px;">
+            <div class="stat-box">
+                <div class="stat-number">$500K-$1M</div>
+                <div class="stat-label">Pre-Seed Round</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">$3M-$5M</div>
+                <div class="stat-label">Pre-Money Valuation</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">$200B+</div>
+                <div class="stat-label">Total Addressable Market</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 2: THE PROBLEM -->
+    <div class="slide">
+        <div class="slide-number">2/10</div>
+        <h2>The Problem: AI Chaos is Killing Enterprise Productivity</h2>
+        <p style="font-size: 28px; margin-bottom: 40px;">Modern enterprises use <span class="highlight">20-35 different AI tools</span> with zero coordination</p>
+        <ul class="problem-list">
+            <li><strong>Catastrophic Fragmentation</strong> — Each tool isolated, context lost, zero intelligence sharing</li>
+            <li><strong>No Operational Memory</strong> — Every interaction starts from scratch, knowledge never accumulates</li>
+            <li><strong>Zero Resilience</strong> — Provider failure = complete halt (avg. 15hrs/month downtime)</li>
+            <li><strong>Manual Orchestration</strong> — Humans selecting providers, massive inefficiency at scale</li>
+            <li><strong>Governance Nightmare</strong> — $50K-$250K/month AI spend with zero visibility</li>
+        </ul>
+        <div class="stats-grid" style="margin-top: 60px;">
+            <div class="stat-box">
+                <div class="stat-number">87%</div>
+                <div class="stat-label">Fortune 500 deploying AI</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">$180K/mo</div>
+                <div class="stat-label">Avg enterprise AI spend 2026</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">28 tools</div>
+                <div class="stat-label">Avg per organization</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 3: THE SOLUTION -->
+    <div class="slide">
+        <div class="slide-number">3/10</div>
+        <h2>The Solution: BOS Operating System</h2>
+        <p style="font-size: 32px; margin-bottom: 50px;"><strong>BOS is not another AI tool. BOS is an operating system.</strong></p>
+        <p style="font-size: 26px; margin-bottom: 50px;">Just as Linux manages servers, iOS manages phones — <span class="highlight">BOS manages cognitive business operations</span></p>
+        
+        <div class="architecture-box">
+┌─────────────────────────────────────────┐
+│         BOS RUNTIME LAYER               │
+│   [Cognition][Orchestration][Memory]   │
+├─────────────────────────────────────────┤
+│  Intelligent Router & Self-Healing      │
+├─────────────────────────────────────────┤
+│    Claude | GPT-4 | Gemini | LLaMA     │
+│         + 20 other providers            │
+└─────────────────────────────────────────┘
+        </div>
+
+        <ul class="solution-list" style="margin-top: 50px;">
+            <li><strong>Intelligent Orchestration</strong> — Auto-selects optimal provider (context, cost, latency)</li>
+            <li><strong>Self-Healing</strong> — 99.95% uptime, automatic failover, zero-downtime</li>
+            <li><strong>Persistent Memory</strong> — Cross-session context, institutional learning</li>
+            <li><strong>Enterprise Observability</strong> — Real-time telemetry, audit trails</li>
+            <li><strong>Vendor-Agnostic</strong> — Works with any AI, eliminates lock-in</li>
+        </ul>
+    </div>
+
+    <!-- SLIDE 4: WHY NOW -->
+    <div class="slide">
+        <div class="slide-number">4/10</div>
+        <h2>Why Now? Perfect Storm (2026)</h2>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-dot">1</div>
+                <div class="timeline-label">AI Matured</div>
+                <div class="timeline-content">Production-grade<br>quality, latency <2s<br>pricing down 85%</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot">2</div>
+                <div class="timeline-label">Fragmentation<br>Critical</div>
+                <div class="timeline-content">200+ tools<br>Integration hell<br>#1 CIO concern</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot">3</div>
+                <div class="timeline-label">Enterprise<br>Explosion</div>
+                <div class="timeline-content">$2.1M avg spend<br>+340% YoY<br>Dedicated AI teams</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot">4</div>
+                <div class="timeline-label">Category<br>Open</div>
+                <div class="timeline-content">"AI OS" undefined<br>18-24mo window<br>First-mover wins</div>
+            </div>
+        </div>
+        <div class="cta-section" style="margin-top: 100px;">
+            <h3 style="font-size: 48px;">The window is NOW. The category is ours to create.</h3>
+        </div>
+    </div>
+
+    <!-- SLIDE 5: MARKET -->
+    <div class="slide">
+        <div class="slide-number">5/10</div>
+        <h2>Market: $200B TAM, Blue Ocean Category</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-number">$200B+</div>
+                <div class="stat-label">TAM — Global Enterprise AI Software (2026)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">$42B</div>
+                <div class="stat-label">SAM — AI Infrastructure & Orchestration</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">$3.2B</div>
+                <div class="stat-label">SOM — Realistic 3-5 Year Capture</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">48% CAGR</div>
+                <div class="stat-label">Market Growth Rate 2026-2030</div>
+            </div>
+        </div>
+        
+        <h3 style="margin-top: 60px;">Target Segments</h3>
+        <ul class="bullet-list">
+            <li><strong>12,000+ AI-First Companies</strong> (Series A-D) — $50K-$150K ACV</li>
+            <li><strong>Fortune 5000 Enterprises</strong> — $150K-$800K ACV, compliance-critical</li>
+            <li><strong>80,000+ Mid-Market</strong> — $15K-$50K ACV, governance needs</li>
+        </ul>
+
+        <div style="background: rgba(16, 185, 129, 0.1); border: 2px solid #10b981; border-radius: 12px; padding: 30px; margin-top: 40px;">
+            <p style="font-size: 32px; color: #10b981; font-weight: 600;">NO DIRECT COMPETITORS in "AI Operating System" category</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 6: BUSINESS MODEL -->
+    <div class="slide">
+        <div class="slide-number">6/10</div>
+        <h2>Business Model: High-Margin B2B SaaS</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Tier</th>
+                    <th>Price</th>
+                    <th>Target</th>
+                    <th>Features</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Professional</strong></td>
+                    <td>$599/mo</td>
+                    <td>AI-First Startups</td>
+                    <td>15 users, 150K req/mo, 5 providers</td>
+                </tr>
+                <tr>
+                    <td><strong>Business</strong></td>
+                    <td>$2,499/mo</td>
+                    <td>Growth Companies</td>
+                    <td>75 users, 750K req/mo, unlimited</td>
+                </tr>
+                <tr>
+                    <td><strong>Enterprise</strong></td>
+                    <td>$8K-$80K/mo</td>
+                    <td>Fortune 5000</td>
+                    <td>Unlimited, SLA, white-glove</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Unit Economics (Year 2)</h3>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-number">$32K</div>
+                <div class="stat-label">Average Contract Value</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">17.4:1</div>
+                <div class="stat-label">LTV:CAC Ratio</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">87%</div>
+                <div class="stat-label">Gross Margin</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">3.6mo</div>
+                <div class="stat-label">CAC Payback Period</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 7: TRACTION & ROADMAP -->
+    <div class="slide">
+        <div class="slide-number">7/10</div>
+        <h2>Traction: MVP Live at bos-runtime.vercel.app</h2>
+        
+        <h3>Current State (Q2 2026)</h3>
+        <ul class="solution-list">
+            <li>Runtime MVP deployed — fully functional, demo-ready</li>
+            <li>Core architecture validated — orchestration operational</li>
+            <li>5 specialized modes implemented</li>
+            <li>Raising Pre-Seed $500K-$1M</li>
+        </ul>
+
+        <h3 style="margin-top: 60px;">12-Month Roadmap to PMF</h3>
+        <table style="font-size: 18px;">
+            <thead>
+                <tr>
+                    <th>Quarter</th>
+                    <th>Milestones</th>
+                    <th>Metrics</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Q2 2026</strong></td>
+                    <td>Close pre-seed, hire team (CTO + 2 engineers)</td>
+                    <td>Funding secured</td>
+                </tr>
+                <tr>
+                    <td><strong>Q3 2026</strong></td>
+                    <td>Production AI integrations, beta launch</td>
+                    <td>5-8 beta customers</td>
+                </tr>
+                <tr>
+                    <td><strong>Q4 2026</strong></td>
+                    <td>Public launch, PMF validation</td>
+                    <td>15 customers, $12K MRR</td>
+                </tr>
+                <tr>
+                    <td><strong>Q1 2027</strong></td>
+                    <td>Seed round prep ($3M-$6M)</td>
+                    <td>60+ customers, $65K MRR</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- SLIDE 8: COMPETITIVE ADVANTAGES -->
+    <div class="slide">
+        <div class="slide-number">8/10</div>
+        <h2>Why BOS Wins: 5 Unfair Advantages</h2>
+        
+        <div class="comparison-grid">
+            <div class="comparison-card winner">
+                <h4>🏆 Category Creation</h4>
+                <p>First "AI OS" positioning. Defining market vs competing. Thought leadership locked.</p>
+            </div>
+            <div class="comparison-card winner">
+                <h4>🏗️ Architectural Superiority</h4>
+                <p>Only platform with orchestration + memory + self-healing. 18-month technical lead.</p>
+            </div>
+            <div class="comparison-card winner">
+                <h4>⏰ Perfect Timing</h4>
+                <p>AI matured but fragmented. Enterprise budgets allocated. 18-24 month window.</p>
+            </div>
+            <div class="comparison-card winner">
+                <h4>🔁 Network Effects</h4>
+                <p>More providers → better routing. More usage → smarter orchestration. Platform moat.</p>
+            </div>
+        </div>
+
+        <div class="cta-section">
+            <h3>We're creating the category. Building the moats. Securing 10-year position.</h3>
+        </div>
+    </div>
+
+    <!-- SLIDE 9: THE ASK -->
+    <div class="slide">
+        <div class="slide-number">9/10</div>
+        <h2>Investment Opportunity: Pre-Seed Round</h2>
+        
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-number">$500K-$1M</div>
+                <div class="stat-label">Raise Amount</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">$3M-$5M</div>
+                <div class="stat-label">Pre-Money Valuation</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">20%</div>
+                <div class="stat-label">SAFE Discount</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">$10M</div>
+                <div class="stat-label">Valuation Cap</div>
+            </div>
+        </div>
+
+        <h3>Use of Funds (18-month runway)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>%</th>
+                    <th>Focus</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Product</strong></td>
+                    <td>42%</td>
+                    <td>Backend, AI integrations, memory system, production</td>
+                </tr>
+                <tr>
+                    <td><strong>Team</strong></td>
+                    <td>32%</td>
+                    <td>CTO, 2x Engineers, Designer (18mo runway)</td>
+                </tr>
+                <tr>
+                    <td><strong>GTM</strong></td>
+                    <td>18%</td>
+                    <td>Marketing, sales, customer acquisition</td>
+                </tr>
+                <tr>
+                    <td><strong>Operations</strong></td>
+                    <td>8%</td>
+                    <td>Cloud, AI APIs, legal, tools</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Return Potential (@ $4M pre-money)</h3>
+        <div class="stats-grid" style="margin-top: 40px;">
+            <div class="stat-box">
+                <div class="stat-number">36x</div>
+                <div class="stat-label">Conservative (Year 3, $144M)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">244x</div>
+                <div class="stat-label">Base Case (Year 5, $975M)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">1,250x+</div>
+                <div class="stat-label">Bull Case (Year 7, $5B+)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 10: CLOSING -->
+    <div class="slide">
+        <div class="slide-number">10/10</div>
+        <div class="logo">BOS</div>
+        <h1 style="font-size: 64px;">Building the Operating System<br>for Business AI</h1>
+        
+        <div style="background: rgba(0, 102, 255, 0.1); border: 3px solid #0066ff; border-radius: 20px; padding: 50px; margin: 60px 0;">
+            <p style="font-size: 32px; color: #0066ff; font-weight: 600; margin-bottom: 30px;">Join the category creators</p>
+            <ul class="solution-list" style="font-size: 24px;">
+                <li>$200B+ TAM, 48% CAGR, category-defining opportunity</li>
+                <li>No direct competitors, 18-month first-mover window</li>
+                <li>MVP live, validated architecture, clear path to PMF</li>
+                <li>Capital-efficient: 18-month runway to Seed</li>
+                <li>36x-1,250x return potential</li>
+            </ul>
+        </div>
+
+        <div class="cta-section">
+            <h3 style="font-size: 48px; margin-bottom: 20px;">The Ask: $500K-$1M Pre-Seed</h3>
+            <p style="font-size: 28px;">The window is now. The category is ours to create.</p>
+        </div>
+
+        <div class="contact-footer">
+            <div class="contact-item">
+                <div class="contact-label">Live Demo</div>
+                <div class="contact-value">https://bos-runtime.vercel.app/</div>
+            </div>
+            <div class="contact-item">
+                <div class="contact-label">Investment Inquiries</div>
+                <div class="contact-value">yuratorin777@gmail.com</div>
+            </div>
+            <div class="contact-item">
+                <div class="contact-label">Document Version</div>
+                <div class="contact-value">2.0 Premium Edition</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
