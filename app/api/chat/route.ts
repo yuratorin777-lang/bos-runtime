@@ -1,61 +1,62 @@
 import { NextRequest } from 'next/server'
 import { getBOSAIService } from '@/lib/ai-service'
 
+// Edge Runtime конфигурация для минимальной латентности
 export const runtime = 'edge'
+export const preferredRegion = 'auto' // Автовыбор ближайшего региона
+export const dynamic = 'force-dynamic' // Отключаем кэширование
+export const maxDuration = 30 // Максимальная длительность выполнения (секунды)
 
 export async function POST(req: NextRequest) {
-  console.log('🔷 [API /chat] Incoming request');
-  
   try {
     const { messages, model, stream = true, mode = 'founder' } = await req.json()
 
-    console.log('📨 [API /chat] Request params:', {
-      messagesCount: messages?.length,
-      model,
-      stream,
-      mode,
-      hasMessages: !!messages
-    });
-
+    // Быстрая валидация
     if (!messages || !Array.isArray(messages)) {
-      console.error('❌ [API /chat] Invalid messages array');
       return new Response(
         JSON.stringify({ error: 'Messages array is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    // Получаем BOS AI Service (использует нашу внутреннюю прокси функцию)
+    // ОПТИМИЗАЦИЯ: Ограничение размера контекста в FAST_RUNTIME_MODE
+    const maxContextTokens = parseInt(process.env.MAX_CONTEXT_TOKENS || '2000', 10)
+    const fastMode = process.env.FAST_RUNTIME_MODE === 'true'
+    
+    // Ограничиваем количество сообщений в истории (предотвращаем таймауты)
+    let limitedMessages = messages
+    if (fastMode && messages.length > 10) {
+      // Сохраняем только последние 10 сообщений для быстрого режима
+      limitedMessages = messages.slice(-10)
+      console.log(`⚡ [FAST MODE] Ограничение истории: ${messages.length} → ${limitedMessages.length} сообщений`)
+    }
+
+    // Получаем сервис (singleton, быстро)
     const aiService = getBOSAIService()
     
-    // Получаем system prompt для режима (founder/operator/investor)
+    // Получаем system prompt (с кэшированием + быстрый режим)
     const systemPrompt = aiService.getBOSSystemPrompt(mode)
 
-    console.log('✅ [API /chat] AI Service ready, mode:', mode);
-
-    // Выполняем запрос через BOS AI Service
+    // Выполняем запрос - минимизируем задержку перед стримом
     if (stream) {
-      console.log('🌊 [API /chat] Starting streaming response');
-      // Streaming response через наш прокси
+      // Streaming response - оптимизирован для первого токена
       return await aiService.streamCompletion({
-        messages,
+        messages: limitedMessages,
         model,
         systemPrompt,
         temperature: 0.7,
-        max_tokens: 4000,
+        max_tokens: maxContextTokens,
       })
     } else {
-      console.log('📄 [API /chat] Starting non-streaming response');
       // Non-streaming response
       const content = await aiService.completion({
-        messages,
+        messages: limitedMessages,
         model,
         systemPrompt,
         temperature: 0.7,
-        max_tokens: 4000,
+        max_tokens: maxContextTokens,
       })
 
-      console.log('✅ [API /chat] Non-streaming completed');
       return new Response(
         JSON.stringify({
           message: content,
@@ -68,11 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('❌ [API /chat] Error:', {
-      message: error.message,
-      stack: error.stack,
-      error: error
-    });
+    console.error('❌ [API /chat] Error:', error.message);
     return new Response(
       JSON.stringify({
         error: 'Internal server error',
