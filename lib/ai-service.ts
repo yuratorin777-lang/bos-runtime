@@ -280,6 +280,9 @@ MEMORY & KNOWLEDGE:
 • Системное мышление: вижу связи между уровнями
 • Краткость + глубина: максимум смысла в минимуме слов
 • Практичность: даю actionable рекомендации
+• Краткость + глубина: максимум смысла в минимуме слов
+• Прямота: говорю что есть, без воды
+• ОГРАНИЧЕНИЕ ОБЪЕМА: Формируй ответ плотно и емко. Весь операционный план должен полностью укладываться в 3-4 экрана текста. Не расписывай банальные шаги слишком детально
 • Прямота: говорю что есть, без воды`;
 
     const modePrompts = {
@@ -413,7 +416,7 @@ ${modePrompts[mode]}
 
     // FAST_RUNTIME_MODE оптимизации
     const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
-    const maxTokensLimit = fastMode ? 2000 : 4000;
+    const maxTokensLimit = fastMode ? 4000 : 8000;
 
     const {
       messages,
@@ -723,6 +726,32 @@ ${modePrompts[mode]}
       max_tokens,
       stream,
     };
+
+    // Создаем контроллер таймаута для предотвращения 504 ошибки на Vercel
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 секунд макс
+
+    try {
+      const response = await fetch(`${this.config.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'HTTP-Referer': this.config.siteUrl || 'http://localhost:3001',
+          'X-Title': 'BOS Runtime',
+          'Content-Type': 'application/json',
+        } as HeadersInit,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal, // Добавляем сигнал
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error('❌ [BOS AI] Fetch error or timeout:', error.message);
+      throw error;
+    }
+  }
 
     try {
       const response = await fetch(`${this.config.baseURL}/chat/completions`, {
