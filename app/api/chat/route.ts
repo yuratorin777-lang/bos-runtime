@@ -5,7 +5,7 @@ import { getBOSAIService } from '@/lib/ai-service'
 export const runtime = 'edge'
 export const preferredRegion = 'auto'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60 // Увеличили до 60, чтобы Vercel не рубил соединение
+export const maxDuration = 60 // Оставляем 60 секунд, чтобы сервер не падал при глубоких ответах
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +17,9 @@ export async function POST(req: NextRequest) {
 
     const aiService = getBOSAIService()
     
-    // Оптимальный лимит токенов для быстрой генерации без зависаний
-    const optimalTokens = 3000 
+    // ВАЖНО: Ставим 5000 токенов. Этого с головой хватит на огромный, 
+    // подробный, экспертный ответ со всеми метриками и таблицами.
+    const optimalTokens = 5000 
 
     if (stream) {
       return await aiService.streamCompletion({
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
         temperature: 0.7,
         max_tokens: optimalTokens,
         mode,
-        useCognitionLayer: true
+        useCognitionLayer: true // Включаем полную когнитивную память
       })
     } else {
       const content = await aiService.completion({
