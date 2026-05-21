@@ -571,10 +571,10 @@ ${modePrompts[mode]}
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
-          'HTTP-Referer': this.config.siteUrl,
+          'HTTP-Referer': this.config.siteUrl || '',
           'X-Title': 'BOS Runtime',
-          'Content-Type': 'application/json',
-        },
+          'Content-Type': 'application/json'
+        } as Record<string, string>,
         body: JSON.stringify(requestBody),
       });
 
