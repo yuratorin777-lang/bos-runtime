@@ -1,9 +1,11 @@
 /**
  * BOS AI SERVICE
- * 
+ *
  * Сервис для работы с AI через OpenRouter
- * Интегрирован с существующей BOS AI Router архитектурой
+ * Интегрирован с BOS Cognition Layer для операционного интеллекта
  */
+
+import { getBOSCognitionLayer, type BOSCognitionLayer } from './bos-cognition-layer';
 
 interface StreamOptions {
   messages: Array<{ role: string; content: string }>;
@@ -11,6 +13,9 @@ interface StreamOptions {
   temperature?: number;
   max_tokens?: number;
   systemPrompt?: string;
+  sessionId?: string; // ID сессии для Memory Layer
+  useCognitionLayer?: boolean; // Использовать ли BOS Cognition Layer (по умолчанию true)
+  mode?: 'founder' | 'operator' | 'investor'; // Режим работы BOS
 }
 
 interface AIServiceConfig {
@@ -28,6 +33,7 @@ interface AIServiceConfig {
 export class BOSAIService {
   private config: AIServiceConfig;
   private systemPromptCache: Map<string, string> = new Map();
+  private cognitionLayer: BOSCognitionLayer;
 
   constructor(config: Partial<AIServiceConfig> = {}) {
     this.config = {
@@ -42,6 +48,9 @@ export class BOSAIService {
       validateModelsOnStartup: config.validateModelsOnStartup !== false // по умолчанию true
     };
     
+    // Инициализация BOS Cognition Layer
+    this.cognitionLayer = getBOSCognitionLayer();
+    
     console.log('🔧 [BOS AI] Service initialized:', {
       hasApiKey: !!this.config.apiKey,
       apiKeyPrefix: this.config.apiKey ? this.config.apiKey.substring(0, 10) + '...' : 'NONE',
@@ -51,7 +60,8 @@ export class BOSAIService {
       secondaryFallbackModel: this.config.secondaryFallbackModel,
       fastModel: this.config.fastModel,
       codingModel: this.config.codingModel,
-      siteUrl: this.config.siteUrl
+      siteUrl: this.config.siteUrl,
+      cognitionLayerEnabled: true
     });
 
     // Валидация провайдеров при старте (отложенная, не блокирует первый запрос)
@@ -132,8 +142,10 @@ export class BOSAIService {
       return this.systemPromptCache.get(cacheKey)!;
     }
 
-    // Генерируем промпт (полный)
-    const prompt = this.generateSystemPrompt(mode);
+    // Генерируем промпт (быстрый или полный)
+    const prompt = fastMode
+      ? this.generateFastSystemPrompt(mode)
+      : this.generateSystemPrompt(mode);
     
     // Кэшируем
     this.systemPromptCache.set(cacheKey, prompt);
@@ -378,7 +390,6 @@ ${modePrompts[mode]}
 ═══════════════════════════════════════════
 
 • Отвечайте ТОЛЬКО на русском языке
-• КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать символы Markdown (звёздочки **, решётки #, нижние подчеркивания) для форматирования текста. Пишите обычным чистым текстом, разделяя абзацы пустой строкой.
 • Давайте конкретные actionable рекомендации
 • Используйте знания всех 7 слоёв BOS
 • Если задача требует запуска агентов — скажите об этом
@@ -390,32 +401,97 @@ ${modePrompts[mode]}
   /**
    * Выполнить streaming запрос к AI с автоматическим fallback
    * Оптимизирован для минимальной latency первого токена
+   * Интегрирован с BOS Cognition Layer
    */
   async streamCompletion(options: StreamOptions): Promise<Response> {
     if (!this.config.apiKey) {
       throw new Error('OpenRouter API key not configured');
     }
 
+    const startTime = Date.now();
+
     // FAST_RUNTIME_MODE оптимизации
     const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
-    const maxTokensLimit = 4000; // Ограничиваем в быстром режиме
+    const maxTokensLimit = fastMode ? 2000 : 4000;
 
-    const { messages, model, temperature = 0.7, max_tokens = maxTokensLimit, systemPrompt } = options;
+    const {
+      messages,
+      model,
+      temperature = 0.7,
+      max_tokens = maxTokensLimit,
+      systemPrompt,
+      sessionId = 'default',
+      useCognitionLayer = true,
+      mode = 'founder'
+    } = options;
 
-    // Добавляем system prompt (оптимизировано)
-    const finalMessages = systemPrompt
-      ? [{ role: 'system', content: systemPrompt }, ...messages]
+    let finalMessages = messages;
+    let finalSystemPrompt = systemPrompt;
+    let selectedModel = model || (fastMode ? this.config.fastModel : this.config.defaultModel);
+
+    // === BOS COGNITION PIPELINE ===
+    if (useCognitionLayer) {
+      try {
+        console.log('🧠 [BOS Cognition] Activating cognition pipeline...');
+
+        // 1. Подготовить контекст
+        const userInput = messages[messages.length - 1]?.content || '';
+        const context = await this.cognitionLayer.prepareContext(userInput, sessionId);
+        
+        console.log('📚 [BOS Cognition] Context prepared:', {
+          knowledgeRetrieved: context.retrievedKnowledge.length,
+          memoryLoaded: context.sessionMemory.conversationHistory.length
+        });
+
+        // 2. Построить BOS system prompt
+        finalSystemPrompt = this.cognitionLayer.buildSystemPrompt(context, mode);
+
+        // 3. Роутинг модели (если не указана явно)
+        if (!model) {
+          const availableModels = [
+            this.config.defaultModel!,
+            this.config.fallbackModel!,
+            this.config.secondaryFallbackModel!,
+            this.config.fastModel!,
+            this.config.codingModel!
+          ];
+          
+          const routingDecision = this.cognitionLayer.routeToModel(userInput, context, availableModels);
+          selectedModel = routingDecision.selectedModel;
+          
+          console.log('🎯 [BOS Cognition] Model routing:', {
+            selected: selectedModel,
+            taskType: routingDecision.taskType,
+            reasoning: routingDecision.reasoning
+          });
+        }
+
+        // 4. Сохранить user input в память (асинхронно)
+        this.cognitionLayer.saveToMemory(sessionId, userInput, '').catch(() => {});
+
+      } catch (error) {
+        console.warn('⚠️ [BOS Cognition] Pipeline failed, falling back to default:', error);
+      }
+    }
+
+    // Добавляем system prompt
+    finalMessages = finalSystemPrompt
+      ? [{ role: 'system', content: finalSystemPrompt }, ...messages]
       : messages;
 
-    // В FAST_RUNTIME_MODE используем быструю модель по умолчанию
-    const selectedModel = model || (fastMode ? this.config.fastModel : this.config.defaultModel);
-
-    // Построить цепочку fallback моделей (убираем дубликаты)
+    // Построить цепочку fallback моделей
     const fallbackChain = Array.from(new Set([
       selectedModel,
       this.config.fallbackModel,
       this.config.secondaryFallbackModel
     ].filter(Boolean))) as string[];
+
+    console.log('🚀 [BOS AI] Starting streaming request:', {
+      model: selectedModel,
+      fallbackChain,
+      cognitionEnabled: useCognitionLayer,
+      messagesCount: finalMessages.length
+    });
 
     // Попытки с каждой моделью в цепочке
     let lastError: string = '';
@@ -428,13 +504,18 @@ ${modePrompts[mode]}
 
         // Успешный ответ - возвращаем с оптимизированными заголовками
         if (response.ok) {
+          const elapsedTime = Date.now() - startTime;
+          console.log(`✅ [BOS AI] Streaming started in ${elapsedTime}ms with ${currentModel}`);
+          
           return new Response(response.body, {
             headers: {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache, no-transform',
               'Connection': 'keep-alive',
-              'X-Accel-Buffering': 'no', // Отключаем буферизацию nginx/Vercel
+              'X-Accel-Buffering': 'no',
               'Transfer-Encoding': 'chunked',
+              'X-BOS-Model': currentModel,
+              'X-BOS-Cognition': useCognitionLayer ? 'enabled' : 'disabled',
             },
           });
         }
@@ -443,13 +524,11 @@ ${modePrompts[mode]}
         const errorText = await response.text();
         lastError = errorText;
 
-        // Специальная обработка 404 (модель недоступна)
         if (response.status === 404) {
           console.warn(`⚠️ [BOS AI] Model ${currentModel} not available (404) - immediate fallback`);
-          continue; // сразу переходим к следующей модели
+          continue;
         }
 
-        // Другие ошибки - логируем и пробуем следующую модель
         console.warn(`⚠️ [BOS AI] Model ${currentModel} failed (${response.status}):`, errorText);
 
       } catch (error: any) {
@@ -465,6 +544,7 @@ ${modePrompts[mode]}
 
   /**
    * Выполнить обычный (не-streaming) запрос с автоматическим fallback
+   * Интегрирован с BOS Cognition Layer
    */
   async completion(options: Omit<StreamOptions, 'stream'>): Promise<string> {
     if (!this.config.apiKey) {
@@ -472,25 +552,78 @@ ${modePrompts[mode]}
       throw new Error('OpenRouter API key not configured');
     }
 
+    const startTime = Date.now();
+
     // FAST_RUNTIME_MODE оптимизации
     const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
-    const maxTokensLimit = 4000;
+    const maxTokensLimit = fastMode ? 2000 : 4000;
 
-    const { messages, model, temperature = 0.7, max_tokens = maxTokensLimit, systemPrompt } = options;
+    const {
+      messages,
+      model,
+      temperature = 0.7,
+      max_tokens = maxTokensLimit,
+      systemPrompt,
+      sessionId = 'default',
+      useCognitionLayer = true,
+      mode = 'founder'
+    } = options;
 
-    const finalMessages = systemPrompt
-      ? [{ role: 'system', content: systemPrompt }, ...messages]
+    let finalMessages = messages;
+    let finalSystemPrompt = systemPrompt;
+    let selectedModel = model || (fastMode ? this.config.fastModel : this.config.defaultModel);
+    let cognitionContext: any = null;
+    let routingDecision: any = null;
+
+    // === BOS COGNITION PIPELINE ===
+    if (useCognitionLayer) {
+      try {
+        console.log('🧠 [BOS Cognition] Activating cognition pipeline...');
+
+        // 1. Подготовить контекст
+        const userInput = messages[messages.length - 1]?.content || '';
+        cognitionContext = await this.cognitionLayer.prepareContext(userInput, sessionId);
+        
+        console.log('📚 [BOS Cognition] Context prepared:', {
+          knowledgeRetrieved: cognitionContext.retrievedKnowledge.length,
+          memoryLoaded: cognitionContext.sessionMemory.conversationHistory.length
+        });
+
+        // 2. Построить BOS system prompt
+        finalSystemPrompt = this.cognitionLayer.buildSystemPrompt(cognitionContext, mode);
+
+        // 3. Роутинг модели (если не указана явно)
+        if (!model) {
+          const availableModels = [
+            this.config.defaultModel!,
+            this.config.fallbackModel!,
+            this.config.secondaryFallbackModel!,
+            this.config.fastModel!,
+            this.config.codingModel!
+          ];
+          
+          routingDecision = this.cognitionLayer.routeToModel(userInput, cognitionContext, availableModels);
+          selectedModel = routingDecision.selectedModel;
+          
+          console.log('🎯 [BOS Cognition] Model routing:', {
+            selected: selectedModel,
+            taskType: routingDecision.taskType,
+            reasoning: routingDecision.reasoning
+          });
+        }
+
+        // 4. Сохранить user input в память (асинхронно)
+        this.cognitionLayer.saveToMemory(sessionId, userInput, '').catch(() => {});
+
+      } catch (error) {
+        console.warn('⚠️ [BOS Cognition] Pipeline failed, falling back to default:', error);
+      }
+    }
+
+    // Добавляем system prompt
+    finalMessages = finalSystemPrompt
+      ? [{ role: 'system', content: finalSystemPrompt }, ...messages]
       : messages;
-
-    // В FAST_RUNTIME_MODE используем быструю модель
-    const selectedModel = model || (fastMode ? this.config.fastModel : this.config.defaultModel);
-
-    console.log('🚀 [BOS AI] Starting non-streaming request:', {
-      model: selectedModel,
-      messagesCount: finalMessages.length,
-      temperature,
-      max_tokens
-    });
 
     // Построить цепочку fallback моделей
     const fallbackChain = Array.from(new Set([
@@ -499,7 +632,14 @@ ${modePrompts[mode]}
       this.config.secondaryFallbackModel
     ].filter(Boolean))) as string[];
 
-    console.log('🔄 [BOS AI] Fallback chain:', fallbackChain);
+    console.log('🚀 [BOS AI] Starting non-streaming request:', {
+      model: selectedModel,
+      fallbackChain,
+      cognitionEnabled: useCognitionLayer,
+      messagesCount: finalMessages.length,
+      temperature,
+      max_tokens
+    });
 
     // Попытки с каждой моделью
     let lastError: string = '';
@@ -514,12 +654,30 @@ ${modePrompts[mode]}
 
         if (response.ok) {
           const data = await response.json();
-          const content = data.choices?.[0]?.message?.content || '';
+          let content = data.choices?.[0]?.message?.content || '';
           
-          console.log(`✅ [BOS AI] Success with ${currentModel}:`, {
+          // === BOS RESPONSE PROCESSING ===
+          if (useCognitionLayer && cognitionContext && routingDecision) {
+            try {
+              content = this.cognitionLayer.processModelResponse(content, cognitionContext, routingDecision);
+              console.log('✨ [BOS Cognition] Response processed through BOS filter');
+            } catch (error) {
+              console.warn('⚠️ [BOS Cognition] Response processing failed:', error);
+            }
+          }
+
+          // Сохранить ответ в память
+          if (useCognitionLayer) {
+            const userInput = messages[messages.length - 1]?.content || '';
+            this.cognitionLayer.saveToMemory(sessionId, userInput, content).catch(() => {});
+          }
+
+          const elapsedTime = Date.now() - startTime;
+          console.log(`✅ [BOS AI] Success with ${currentModel} in ${elapsedTime}ms:`, {
             contentLength: content.length,
             hasContent: !!content,
-            attempt
+            attempt,
+            cognitionProcessed: useCognitionLayer
           });
           
           return content;
@@ -570,10 +728,10 @@ ${modePrompts[mode]}
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
-          'HTTP-Referer': this.config.siteUrl || '',
+          'HTTP-Referer': this.config.siteUrl || 'http://localhost:3001',
           'X-Title': 'BOS Runtime',
-          'Content-Type': 'application/json'
-        } as Record<string, string>,
+          'Content-Type': 'application/json',
+        } as HeadersInit,
         body: JSON.stringify(requestBody),
       });
 
