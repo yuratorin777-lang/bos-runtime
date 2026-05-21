@@ -1,15 +1,16 @@
 /**
- * BOS COGNITION LAYER
+ * BOS COGNITION LAYER (Edge Runtime Compatible)
  * 
  * Слой операционного интеллекта BOS
  * Трансформирует LLM из простых генераторов ответов в BOS-aware когнитивную систему
+ * 
+ * ⚡ EDGE RUNTIME READY — работает без fs/path модулей
  * 
  * Архитектура:
  * User → BOS Runtime → BOS Cognition Layer → Memory → Knowledge → Router → Model → Response Processor → BOS Response
  */
 
-import fs from 'fs';
-import path from 'path';
+import { BOS_CORE_STATIC } from './bos-core-static';
 
 // ============================================================================
 // ТИПЫ И ИНТЕРФЕЙСЫ
@@ -53,66 +54,23 @@ export interface BOSResponse {
 }
 
 // ============================================================================
-// BOS SYSTEM CONTEXT ENGINE
+// BOS SYSTEM CONTEXT ENGINE (Edge Runtime Compatible)
 // ============================================================================
 
 export class BOSSystemContextEngine {
   private contextCache: Map<string, { content: string; timestamp: number }> = new Map();
   private cacheTimeout = 5 * 60 * 1000; // 5 минут
-  private basePath: string;
-
-  constructor(basePath: string = process.cwd()) {
-    this.basePath = basePath;
-  }
 
   /**
-   * Загрузить все базовые BOS контексты
+   * Загрузить все базовые BOS контексты (из статических констант)
    */
   async loadSystemContext(): Promise<Pick<CognitionContext, 'systemCore' | 'founderContext' | 'currentState' | 'investorNarrative'>> {
-    const coreFiles = [
-      'BOS_CORE/SYSTEM_CORE.md',
-      'BOS_CORE/FOUNDER_CONTEXT.md',
-      'BOS_CORE/CURRENT_STATE.md',
-      'BOS_CORE/INVESTOR_NARRATIVE.md'
-    ];
-
-    const [systemCore, founderContext, currentState, investorNarrative] = await Promise.all(
-      coreFiles.map(file => this.loadFileWithCache(file))
-    );
-
     return {
-      systemCore,
-      founderContext,
-      currentState,
-      investorNarrative
+      systemCore: BOS_CORE_STATIC.SYSTEM_CORE,
+      founderContext: BOS_CORE_STATIC.FOUNDER_CONTEXT,
+      currentState: BOS_CORE_STATIC.CURRENT_STATE,
+      investorNarrative: BOS_CORE_STATIC.INVESTOR_NARRATIVE
     };
-  }
-
-  /**
-   * Загрузить файл с кэшированием
-   */
-  private async loadFileWithCache(filePath: string): Promise<string> {
-    const now = Date.now();
-    const cached = this.contextCache.get(filePath);
-
-    // Проверяем кэш
-    if (cached && (now - cached.timestamp) < this.cacheTimeout) {
-      return cached.content;
-    }
-
-    // Загружаем файл
-    try {
-      const fullPath = path.join(this.basePath, filePath);
-      const content = await fs.promises.readFile(fullPath, 'utf-8');
-      
-      // Кэшируем
-      this.contextCache.set(filePath, { content, timestamp: now });
-      
-      return content;
-    } catch (error) {
-      console.warn(`⚠️ [BOS Context] Failed to load ${filePath}:`, error);
-      return '';
-    }
   }
 
   /**
@@ -124,83 +82,27 @@ export class BOSSystemContextEngine {
 }
 
 // ============================================================================
-// BOS KNOWLEDGE LAYER (RAG)
+// BOS KNOWLEDGE LAYER (Edge Runtime Compatible)
 // ============================================================================
 
 export class BOSKnowledgeLayer {
   private knowledgeBase: Map<string, string> = new Map();
-  private basePath: string;
-
-  constructor(basePath: string = process.cwd()) {
-    this.basePath = basePath;
-  }
 
   /**
-   * Инициализировать базу знаний
+   * Инициализировать базу знаний (из статических данных)
    */
   async initialize(): Promise<void> {
-    const knowledgePaths = [
-      'BOS_CORE/KNOWLEDGE',
-      'BOS_CORE/ARCHITECTURE',
-      'BOS_CORE/ROADMAP',
-      'BOS_CORE/RUNTIME'
-    ];
+    // На Edge Runtime мы используем встроенные статические знания
+    // Добавляем основные документы BOS_CORE
+    this.knowledgeBase.set('BOS_CORE/FOUNDER_CONTEXT.md', BOS_CORE_STATIC.FOUNDER_CONTEXT);
+    this.knowledgeBase.set('BOS_CORE/CURRENT_STATE.md', BOS_CORE_STATIC.CURRENT_STATE);
+    this.knowledgeBase.set('BOS_CORE/INVESTOR_NARRATIVE.md', BOS_CORE_STATIC.INVESTOR_NARRATIVE);
 
-    for (const knowledgePath of knowledgePaths) {
-      await this.indexDirectory(knowledgePath);
-    }
-
-    console.log(`✅ [BOS Knowledge] Indexed ${this.knowledgeBase.size} documents`);
-  }
-
-  /**
-   * Индексировать директорию
-   */
-  private async indexDirectory(dirPath: string): Promise<void> {
-    try {
-      const fullPath = path.join(this.basePath, dirPath);
-      const files = await this.walkDirectory(fullPath);
-      
-      for (const file of files) {
-        if (file.endsWith('.md') || file.endsWith('.txt')) {
-          const content = await fs.promises.readFile(file, 'utf-8');
-          const relativePath = path.relative(this.basePath, file);
-          this.knowledgeBase.set(relativePath, content);
-        }
-      }
-    } catch (error) {
-      console.warn(`⚠️ [BOS Knowledge] Failed to index ${dirPath}:`, error);
-    }
-  }
-
-  /**
-   * Рекурсивно пройти по директории
-   */
-  private async walkDirectory(dir: string): Promise<string[]> {
-    const files: string[] = [];
-    
-    try {
-      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        
-        if (entry.isDirectory()) {
-          files.push(...await this.walkDirectory(fullPath));
-        } else {
-          files.push(fullPath);
-        }
-      }
-    } catch (error) {
-      // Директория не существует или недоступна
-    }
-    
-    return files;
+    console.log(`✅ [BOS Knowledge] Indexed ${this.knowledgeBase.size} documents (static)`);
   }
 
   /**
    * Извлечь релевантные знания (простой keyword-based поиск)
-   * TODO: В будущем использовать векторный поиск (embeddings)
    */
   async retrieveRelevantKnowledge(query: string, limit: number = 3): Promise<string[]> {
     const queryLower = query.toLowerCase();
@@ -249,16 +151,11 @@ export class BOSKnowledgeLayer {
 }
 
 // ============================================================================
-// BOS MEMORY LAYER
+// BOS MEMORY LAYER (Edge Runtime Compatible - In-Memory Only)
 // ============================================================================
 
 export class BOSMemoryLayer {
   private sessions: Map<string, MemoryContext> = new Map();
-  private persistencePath: string;
-
-  constructor(persistencePath: string = './bos-memory-store') {
-    this.persistencePath = persistencePath;
-  }
 
   /**
    * Получить или создать контекст сессии
@@ -268,14 +165,7 @@ export class BOSMemoryLayer {
       return this.sessions.get(sessionId)!;
     }
 
-    // Попытка загрузить из постоянного хранилища
-    const loaded = await this.loadSessionFromDisk(sessionId);
-    if (loaded) {
-      this.sessions.set(sessionId, loaded);
-      return loaded;
-    }
-
-    // Создаем новую сессию
+    // Создаем новую сессию (только в памяти)
     const newContext: MemoryContext = {
       sessionId,
       conversationHistory: [],
@@ -296,10 +186,8 @@ export class BOSMemoryLayer {
     const context = await this.getSessionContext(sessionId);
     Object.assign(context, update);
     
-    // Сохранить на диск (асинхронно)
-    this.saveSessionToDisk(sessionId, context).catch(err => 
-      console.warn('⚠️ [BOS Memory] Failed to persist session:', err)
-    );
+    // Примечание: на Edge Runtime мы храним только в памяти
+    // Персистентность будет добавлена через внешнюю БД (не через fs)
   }
 
   /**
@@ -317,33 +205,45 @@ export class BOSMemoryLayer {
     if (context.conversationHistory.length > 50) {
       context.conversationHistory = context.conversationHistory.slice(-50);
     }
-
-    await this.saveSessionToDisk(sessionId, context);
   }
 
   /**
-   * Загрузить сессию с диска
+   * Получить статистику памяти
    */
-  private async loadSessionFromDisk(sessionId: string): Promise<MemoryContext | null> {
-    try {
-      const filePath = path.join(this.persistencePath, `${sessionId}.json`);
-      const data = await fs.promises.readFile(filePath, 'utf-8');
-      return JSON.parse(data);
-    } catch (error) {
-      return null;
+  getMemoryStats(): { totalSessions: number; totalMessages: number } {
+    let totalMessages = 0;
+    for (const context of this.sessions.values()) {
+      totalMessages += context.conversationHistory.length;
     }
+    return {
+      totalSessions: this.sessions.size,
+      totalMessages
+    };
   }
 
   /**
-   * Сохранить сессию на диск
+   * Очистить старые сессии (для управления памятью)
    */
-  private async saveSessionToDisk(sessionId: string, context: MemoryContext): Promise<void> {
-    try {
-      await fs.promises.mkdir(this.persistencePath, { recursive: true });
-      const filePath = path.join(this.persistencePath, `${sessionId}.json`);
-      await fs.promises.writeFile(filePath, JSON.stringify(context, null, 2));
-    } catch (error) {
-      console.warn('⚠️ [BOS Memory] Failed to save session:', error);
+  cleanupOldSessions(maxAgeMs: number = 24 * 60 * 60 * 1000): void {
+    const now = Date.now();
+    const sessionsToDelete: string[] = [];
+
+    for (const [sessionId, context] of this.sessions.entries()) {
+      const lastActivity = context.conversationHistory.length > 0
+        ? context.conversationHistory[context.conversationHistory.length - 1].timestamp
+        : 0;
+      
+      if (now - lastActivity > maxAgeMs) {
+        sessionsToDelete.push(sessionId);
+      }
+    }
+
+    for (const sessionId of sessionsToDelete) {
+      this.sessions.delete(sessionId);
+    }
+
+    if (sessionsToDelete.length > 0) {
+      console.log(`🧹 [BOS Memory] Cleaned up ${sessionsToDelete.length} old sessions`);
     }
   }
 }
@@ -528,12 +428,12 @@ export class BOSCognitionLayer {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    console.log('🧠 [BOS Cognition] Initializing cognition layer...');
+    console.log('🧠 [BOS Cognition] Initializing cognition layer (Edge Runtime mode)...');
     
     await this.knowledgeLayer.initialize();
     
     this.initialized = true;
-    console.log('✅ [BOS Cognition] Cognition layer ready');
+    console.log('✅ [BOS Cognition] Cognition layer ready (static knowledge loaded)');
   }
 
   /**
@@ -646,6 +546,24 @@ export class BOSCognitionLayer {
 `);
 
     return parts.join('\n');
+  }
+
+  /**
+   * Получить статистику слоя
+   */
+  getStats() {
+    return {
+      initialized: this.initialized,
+      memory: this.memoryLayer.getMemoryStats()
+    };
+  }
+
+  /**
+   * Очистить неиспользуемые данные (для управления памятью на Edge)
+   */
+  cleanup(): void {
+    this.memoryLayer.cleanupOldSessions();
+    this.contextEngine.clearCache();
   }
 }
 
