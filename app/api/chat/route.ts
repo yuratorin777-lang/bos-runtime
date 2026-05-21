@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
     }
 
     // ОПТИМИЗАЦИЯ: Ограничение размера контекста в FAST_RUNTIME_MODE
-    const maxContextTokens = parseInt(process.env.MAX_CONTEXT_TOKENS || '2000', 10)
     const fastMode = process.env.FAST_RUNTIME_MODE === 'true'
     
     // Ограничиваем количество сообщений в истории (предотвращаем таймауты)
@@ -34,27 +33,29 @@ export async function POST(req: NextRequest) {
     // Получаем сервис (singleton, быстро)
     const aiService = getBOSAIService()
     
-    // Получаем system prompt (с кэшированием + быстрый режим)
-    const systemPrompt = aiService.getBOSSystemPrompt(mode)
+    // Управляем динамическим лимитом токенов в зависимости от режима
+    const maxTokensLimit = fastMode ? 4000 : 8000
 
     // Выполняем запрос - минимизируем задержку перед стримом
     if (stream) {
-      // Streaming response - оптимизирован для первого токена
+      // Streaming response - оптимизирован для первого токена и защищен от 504
       return await aiService.streamCompletion({
         messages: limitedMessages,
         model,
-        systemPrompt,
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: maxTokensLimit, // Используем увеличенный лимит вместо хардкода 2000
+        mode,
+        useCognitionLayer: true
       })
     } else {
       // Non-streaming response
       const content = await aiService.completion({
         messages: limitedMessages,
         model,
-        systemPrompt,
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: maxTokensLimit, // Используем увеличенный лимит вместо хардкода 2000
+        mode,
+        useCognitionLayer: true
       })
 
       return new Response(
