@@ -132,10 +132,8 @@ export class BOSAIService {
       return this.systemPromptCache.get(cacheKey)!;
     }
 
-    // Генерируем промпт (быстрый или полный)
-    const prompt = fastMode
-      ? this.generateFastSystemPrompt(mode)
-      : this.generateSystemPrompt(mode);
+    // Генерируем промпт (полный)
+    const prompt = this.generateSystemPrompt(mode);
     
     // Кэшируем
     this.systemPromptCache.set(cacheKey, prompt);
