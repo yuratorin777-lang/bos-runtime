@@ -27,6 +27,7 @@ interface AIServiceConfig {
 
 export class BOSAIService {
   private config: AIServiceConfig;
+  private systemPromptCache: Map<string, string> = new Map();
 
   constructor(config: Partial<AIServiceConfig> = {}) {
     this.config = {
@@ -53,9 +54,10 @@ export class BOSAIService {
       siteUrl: this.config.siteUrl
     });
 
-    // Валидация провайдеров при старте (асинхронно, не блокирует инициализацию)
+    // Валидация провайдеров при старте (отложенная, не блокирует первый запрос)
     if (this.config.validateModelsOnStartup && this.config.apiKey) {
-      this.validateProvidersAsync();
+      // Откладываем валидацию на следующий тик, чтобы не блокировать инициализацию
+      setTimeout(() => this.validateProvidersAsync(), 0);
     }
   }
 
@@ -118,8 +120,60 @@ export class BOSAIService {
 
   /**
    * Системный промпт для BOS Sovereign Runtime Intelligence
+   * С кэшированием для оптимизации производительности
    */
   getBOSSystemPrompt(mode: 'founder' | 'operator' | 'investor' = 'founder'): string {
+    // Проверяем FAST_RUNTIME_MODE для production
+    const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
+    
+    // Проверяем кэш
+    const cacheKey = `systemPrompt_${mode}_${fastMode ? 'fast' : 'full'}`;
+    if (this.systemPromptCache.has(cacheKey)) {
+      return this.systemPromptCache.get(cacheKey)!;
+    }
+
+    // Генерируем промпт (быстрый или полный)
+    const prompt = fastMode
+      ? this.generateFastSystemPrompt(mode)
+      : this.generateSystemPrompt(mode);
+    
+    // Кэшируем
+    this.systemPromptCache.set(cacheKey, prompt);
+    
+    return prompt;
+  }
+
+  /**
+   * Генерация БЫСТРОГО системного промпта для production (минимальный контекст)
+   */
+  private generateFastSystemPrompt(mode: 'founder' | 'operator' | 'investor'): string {
+    const basePrompt = `Вы — BOS (Business Operating System) — AI-ассистент для управления и создания бизнесов.
+
+🎯 ВАША РОЛЬ:
+• Помогаете анализировать бизнес-идеи и стратегии
+• Даёте конкретные практические рекомендации
+• Оптимизируете процессы и воронки
+• Анализируете метрики и unit economics
+
+📋 СТИЛЬ:
+• Русский язык
+• Конкретика вместо общих фраз
+• Максимум смысла в минимуме слов
+• Практичные actionable рекомендации`;
+
+    const modePrompts = {
+      founder: `\n\n🏗️ РЕЖИМ FOUNDER: Помогаю строить бизнес с нуля - анализ ниши, формирование продукта, стратегия запуска.`,
+      operator: `\n\n⚙️ РЕЖИМ OPERATOR: Оптимизирую и автоматизирую процессы, настраиваю системы, анализирую метрики.`,
+      investor: `\n\n💰 РЕЖИМ INVESTOR: Анализирую цифры, считаю unit economics, оцениваю потенциал роста.`
+    };
+
+    return basePrompt + modePrompts[mode];
+  }
+
+  /**
+   * Генерация ПОЛНОГО системного промпта (вызывается только при первом обращении)
+   */
+  private generateSystemPrompt(mode: 'founder' | 'operator' | 'investor'): string {
     const basePrompt = `Вы — BOS (Business Operating System) — AI-native система управления и создания бизнесов.
 
 ═══════════════════════════════════════════
@@ -336,30 +390,26 @@ ${modePrompts[mode]}
 
   /**
    * Выполнить streaming запрос к AI с автоматическим fallback
+   * Оптимизирован для минимальной latency первого токена
    */
   async streamCompletion(options: StreamOptions): Promise<Response> {
     if (!this.config.apiKey) {
-      console.error('❌ [BOS AI] OpenRouter API key not configured');
       throw new Error('OpenRouter API key not configured');
     }
 
-    const { messages, model, temperature = 0.7, max_tokens = 4000, systemPrompt } = options;
+    // FAST_RUNTIME_MODE оптимизации
+    const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
+    const maxTokensLimit = fastMode ? 2000 : 4000; // Ограничиваем в быстром режиме
 
-    // Добавляем system prompt
+    const { messages, model, temperature = 0.7, max_tokens = maxTokensLimit, systemPrompt } = options;
+
+    // Добавляем system prompt (оптимизировано)
     const finalMessages = systemPrompt
       ? [{ role: 'system', content: systemPrompt }, ...messages]
       : messages;
 
-    const selectedModel = model || this.config.defaultModel;
-
-    console.log('🚀 [BOS AI] Starting streaming request:', {
-      model: selectedModel,
-      messagesCount: finalMessages.length,
-      temperature,
-      max_tokens,
-      hasSystemPrompt: !!systemPrompt,
-      endpoint: `${this.config.baseURL}/chat/completions`
-    });
+    // В FAST_RUNTIME_MODE используем быструю модель по умолчанию
+    const selectedModel = model || (fastMode ? this.config.fastModel : this.config.defaultModel);
 
     // Построить цепочку fallback моделей (убираем дубликаты)
     const fallbackChain = Array.from(new Set([
@@ -368,8 +418,6 @@ ${modePrompts[mode]}
       this.config.secondaryFallbackModel
     ].filter(Boolean))) as string[];
 
-    console.log('🔄 [BOS AI] Fallback chain:', fallbackChain);
-
     // Попытки с каждой моделью в цепочке
     let lastError: string = '';
     for (let i = 0; i < fallbackChain.length; i++) {
@@ -377,24 +425,17 @@ ${modePrompts[mode]}
       const attempt = i + 1;
 
       try {
-        console.log(`🎯 [BOS AI] Attempt ${attempt}/${fallbackChain.length}: ${currentModel}`);
-        
         const response = await this.makeRequest(currentModel, finalMessages, temperature, max_tokens);
 
-        console.log(`📡 [BOS AI] Response from ${currentModel}:`, {
-          status: response.status,
-          ok: response.ok,
-          statusText: response.statusText
-        });
-
-        // Успешный ответ - возвращаем
+        // Успешный ответ - возвращаем с оптимизированными заголовками
         if (response.ok) {
-          console.log(`✅ [BOS AI] Success with ${currentModel} (attempt ${attempt})`);
           return new Response(response.body, {
             headers: {
               'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
+              'Cache-Control': 'no-cache, no-transform',
               'Connection': 'keep-alive',
+              'X-Accel-Buffering': 'no', // Отключаем буферизацию nginx/Vercel
+              'Transfer-Encoding': 'chunked',
             },
           });
         }
@@ -432,13 +473,18 @@ ${modePrompts[mode]}
       throw new Error('OpenRouter API key not configured');
     }
 
-    const { messages, model, temperature = 0.7, max_tokens = 4000, systemPrompt } = options;
+    // FAST_RUNTIME_MODE оптимизации
+    const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
+    const maxTokensLimit = fastMode ? 2000 : 4000;
+
+    const { messages, model, temperature = 0.7, max_tokens = maxTokensLimit, systemPrompt } = options;
 
     const finalMessages = systemPrompt
       ? [{ role: 'system', content: systemPrompt }, ...messages]
       : messages;
 
-    const selectedModel = model || this.config.defaultModel;
+    // В FAST_RUNTIME_MODE используем быструю модель
+    const selectedModel = model || (fastMode ? this.config.fastModel : this.config.defaultModel);
 
     console.log('🚀 [BOS AI] Starting non-streaming request:', {
       model: selectedModel,
@@ -520,40 +566,21 @@ ${modePrompts[mode]}
       stream,
     };
 
-    console.log('📤 [BOS AI] Making request to OpenRouter:', {
-      url: `${this.config.baseURL}/chat/completions`,
-      model,
-      stream,
-      messagesCount: messages.length,
-      temperature,
-      max_tokens
-    });
-
     try {
       const response = await fetch(`${this.config.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
-          'HTTP-Referer': this.config.siteUrl || 'http://localhost:3000',
+          'HTTP-Referer': this.config.siteUrl,
           'X-Title': 'BOS Runtime',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
 
-      console.log('📥 [BOS AI] Received response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
       return response;
     } catch (error: any) {
-      console.error('❌ [BOS AI] Fetch error:', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('❌ [BOS AI] Fetch error:', error.message);
       throw error;
     }
   }
