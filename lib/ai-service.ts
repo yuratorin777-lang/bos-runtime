@@ -399,7 +399,7 @@ ${modePrompts[mode]}
 
     // FAST_RUNTIME_MODE оптимизации
     const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
-    const maxTokensLimit = fastMode ? 4000; // Ограничиваем в быстром режиме
+    const maxTokensLimit = 4000; // Ограничиваем в быстром режиме
 
     const { messages, model, temperature = 0.7, max_tokens = maxTokensLimit, systemPrompt } = options;
 
@@ -475,7 +475,7 @@ ${modePrompts[mode]}
 
     // FAST_RUNTIME_MODE оптимизации
     const fastMode = process.env.FAST_RUNTIME_MODE === 'true';
-    const maxTokensLimit = fastMode ? 4000;
+    const maxTokensLimit = 4000;
 
     const { messages, model, temperature = 0.7, max_tokens = maxTokensLimit, systemPrompt } = options;
 
